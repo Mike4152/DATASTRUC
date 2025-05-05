@@ -1,4 +1,4 @@
-#include "ecommerceAnalyzer.hpp"
+#include "L_ecommerceAnalyzer.hpp"
 #include <set>
 
 using namespace std;
@@ -755,7 +755,6 @@ int jumpSearch(Transaction* head, const string& category, const string& paymentM
     return (totalCount > 0) ? (matchCount * 100 / totalCount) : 0;
 }
 
-// Improved Exponential Search for Linked Lists
 int exponentialSearch(Transaction* head, const string& category, const string& paymentMethod, 
                      int& totalCount, int& matchCount) {
     totalCount = 0;
@@ -1014,6 +1013,672 @@ int countReviews(Review* head) {
     return count;
 }
 
+// Extract tokenized words from reviews based on algorithm
+WordFrequency* extractWordsFromReviews(Review* reviewHead, int algorithm, int& totalReviews, 
+                                       int& oneStarReviews, int& totalWords) {
+    WordFrequency* wordFreqHead = nullptr;
+    totalReviews = 0;
+    oneStarReviews = 0;
+    totalWords = 0;
+    
+    Review* current = reviewHead;
+    while (current) {
+        totalReviews++;
+        
+        if (current->rating == 1) {
+            oneStarReviews++;
+            
+            // Tokenize review text
+            string text = current->reviewText;
+            stringstream ss(text);
+            string word;
+            
+            while (ss >> word) {
+                string cleanedWord = cleanWord(word);
+                if (!cleanedWord.empty() && cleanedWord.length() > 2) {
+                    totalWords++;
+                    
+                    switch(algorithm) {
+                        case 1:
+                            binarySearchWordUpdate(wordFreqHead, cleanedWord);
+                            break;
+                        case 2:
+                            exponentialSearchWordUpdate(wordFreqHead, cleanedWord);
+                            break;
+                        case 3:
+                            jumpSearchWordUpdate(wordFreqHead, cleanedWord);
+                            break;
+                        case 4:
+                            linearSearchWordUpdate(wordFreqHead, cleanedWord);
+                            break;
+                        default:
+                            incrementWordFrequency(wordFreqHead, cleanedWord);
+                    }
+                }
+            }
+        }
+        current = current->next;
+    }
+    
+    return wordFreqHead;
+}
+
+// Binary search implementation for word update
+void binarySearchWordUpdate(WordFrequency*& head, const string& word) {
+    // If list is empty, just add the word
+    if (!head) {
+        head = new WordFrequency(word, 1);
+        return;
+    }
+    
+    // First sort the list alphabetically if not already sorted
+    // For real binary search, the list must be sorted by word
+    WordFrequency* sorted = nullptr;
+    WordFrequency* current = head;
+    
+    // Create a sorted list by word for binary search
+    while (current) {
+        WordFrequency* next = current->next;
+        current->next = nullptr;
+        
+        if (!sorted || current->word < sorted->word) {
+            current->next = sorted;
+            sorted = current;
+        } else {
+            WordFrequency* temp = sorted;
+            while (temp->next && temp->next->word < current->word) {
+                temp = temp->next;
+            }
+            current->next = temp->next;
+            temp->next = current;
+        }
+        
+        current = next;
+    }
+    
+    head = sorted;
+    
+    // Binary search approximation for linked list
+    int nodeCount = 0;
+    current = head;
+    while (current) {
+        nodeCount++;
+        current = current->next;
+    }
+    
+    // Create an array of pointers for binary search
+    WordFrequency** wordArray = new WordFrequency*[nodeCount];
+    current = head;
+    for (int i = 0; i < nodeCount; i++) {
+        wordArray[i] = current;
+        current = current->next;
+    }
+    
+    // Perform binary search
+    int left = 0;
+    int right = nodeCount - 1;
+    bool found = false;
+    
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+        
+        if (wordArray[mid]->word == word) {
+            wordArray[mid]->frequency++;
+            found = true;
+            break;
+        } else if (wordArray[mid]->word < word) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+    
+    // If word not found, add it to the list
+    if (!found) {
+        insertWordFrequency(head, word, 1);
+    }
+    
+    delete[] wordArray;
+}
+
+// Exponential search implementation for word update
+void exponentialSearchWordUpdate(WordFrequency*& head, const string& word) {
+    // If list is empty, just add the word
+    if (!head) {
+        head = new WordFrequency(word, 1);
+        return;
+    }
+    
+    // First we need to sort the list by word for exponential search
+    WordFrequency* sorted = nullptr;
+    WordFrequency* current = head;
+    
+    // Create a sorted list by word
+    while (current) {
+        WordFrequency* next = current->next;
+        current->next = nullptr;
+        
+        if (!sorted || current->word < sorted->word) {
+            current->next = sorted;
+            sorted = current;
+        } else {
+            WordFrequency* temp = sorted;
+            while (temp->next && temp->next->word < current->word) {
+                temp = temp->next;
+            }
+            current->next = temp->next;
+            temp->next = current;
+        }
+        
+        current = next;
+    }
+    
+    head = sorted;
+    
+    // Count nodes for array creation
+    int nodeCount = 0;
+    current = head;
+    while (current) {
+        nodeCount++;
+        current = current->next;
+    }
+    
+    // Create an array for exponential search
+    WordFrequency** wordArray = new WordFrequency*[nodeCount];
+    current = head;
+    for (int i = 0; i < nodeCount; i++) {
+        wordArray[i] = current;
+        current = current->next;
+    }
+    
+    // Exponential search
+    int bound = 1;
+    bool found = false;
+    
+    while (bound < nodeCount && wordArray[bound-1]->word < word) {
+        bound *= 2;
+    }
+    
+    // Binary search in the identified range
+    int left = bound / 2;
+    int right = min(bound, nodeCount) - 1;
+    
+    while (left <= right && !found) {
+        int mid = left + (right - left) / 2;
+        
+        if (wordArray[mid]->word == word) {
+            wordArray[mid]->frequency++;
+            found = true;
+        } else if (wordArray[mid]->word < word) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+    
+    // If word not found, add it to the list
+    if (!found) {
+        insertWordFrequency(head, word, 1);
+    }
+    
+    delete[] wordArray;
+}
+
+// Jump search implementation for word update
+void jumpSearchWordUpdate(WordFrequency*& head, const string& word) {
+    // If list is empty, just add the word
+    if (!head) {
+        head = new WordFrequency(word, 1);
+        return;
+    }
+    
+    // First sort the list by word
+    WordFrequency* sorted = nullptr;
+    WordFrequency* current = head;
+    
+    // Create a sorted list by word
+    while (current) {
+        WordFrequency* next = current->next;
+        current->next = nullptr;
+        
+        if (!sorted || current->word < sorted->word) {
+            current->next = sorted;
+            sorted = current;
+        } else {
+            WordFrequency* temp = sorted;
+            while (temp->next && temp->next->word < current->word) {
+                temp = temp->next;
+            }
+            current->next = temp->next;
+            temp->next = current;
+        }
+        
+        current = next;
+    }
+    
+    head = sorted;
+    
+    // Count nodes for jump size calculation
+    int nodeCount = 0;
+    current = head;
+    while (current) {
+        nodeCount++;
+        current = current->next;
+    }
+    
+    // Create an array for jump search
+    WordFrequency** wordArray = new WordFrequency*[nodeCount];
+    current = head;
+    for (int i = 0; i < nodeCount; i++) {
+        wordArray[i] = current;
+        current = current->next;
+    }
+    
+    // Jump search
+    int jumpSize = sqrt(nodeCount);
+    if (jumpSize < 1) jumpSize = 1;
+    
+    int pos = 0;
+    bool found = false;
+    
+    // Find block where word might be
+    while (pos < nodeCount && wordArray[pos]->word < word) {
+        pos += jumpSize;
+    }
+    
+    // Linear search in the block
+    int searchStart = pos - jumpSize;
+    if (searchStart < 0) searchStart = 0;
+    
+    for (int i = searchStart; i <= pos && i < nodeCount; i++) {
+        if (wordArray[i]->word == word) {
+            wordArray[i]->frequency++;
+            found = true;
+            break;
+        }
+    }
+    
+    // If word not found, add it to the list
+    if (!found) {
+        insertWordFrequency(head, word, 1);
+    }
+    
+    delete[] wordArray;
+}
+
+// Linear search implementation for word update
+void linearSearchWordUpdate(WordFrequency*& head, const string& word) {
+    WordFrequency* curr = head;
+    bool found = false;
+    
+    while (curr) {
+        if (curr->word == word) {
+            curr->frequency++;
+            found = true;
+            break;
+        }
+        curr = curr->next;
+    }
+    
+    // If not found, add new word
+    if (!found) {
+        incrementWordFrequency(head, word);
+    }
+}
+
+// Apply bubble sort to word frequency list
+void bubbleSortWordFrequency(WordFrequency*& head) {
+    if (!head || !head->next) return;
+    
+    bool swapped;
+    WordFrequency* ptr1;
+    WordFrequency* lptr = nullptr;
+    
+    do {
+        swapped = false;
+        ptr1 = head;
+        
+        while (ptr1->next != lptr) {
+            if (ptr1->frequency < ptr1->next->frequency) {
+                // Swap data
+                string tempWord = ptr1->word;
+                ptr1->word = ptr1->next->word;
+                ptr1->next->word = tempWord;
+                
+                int tempFreq = ptr1->frequency;
+                ptr1->frequency = ptr1->next->frequency;
+                ptr1->next->frequency = tempFreq;
+                
+                swapped = true;
+            }
+            ptr1 = ptr1->next;
+        }
+        lptr = ptr1;
+    } while (swapped);
+}
+
+// Find the last node in a linked list
+WordFrequency* getLastWordNode(WordFrequency* head) {
+    if (!head) return nullptr;
+    
+    while (head->next) {
+        head = head->next;
+    }
+    
+    return head;
+}
+
+// Partition function for quick sort
+WordFrequency* partitionWordFrequency(WordFrequency* start, WordFrequency* end) {
+    // Select pivot as end node
+    int pivotFreq = end->frequency;
+    
+    WordFrequency* i = start;
+    WordFrequency* j = start;
+    
+    while (j != end) {
+        if (j->frequency > pivotFreq) {  // Sort in descending order
+            // Swap data
+            string tempWord = i->word;
+            i->word = j->word;
+            j->word = tempWord;
+            
+            int tempFreq = i->frequency;
+            i->frequency = j->frequency;
+            j->frequency = tempFreq;
+            
+            i = i->next;
+        }
+        j = j->next;
+    }
+    
+    // Swap pivot to its final position
+    string tempWord = i->word;
+    i->word = end->word;
+    end->word = tempWord;
+    
+    int tempFreq = i->frequency;
+    i->frequency = end->frequency;
+    end->frequency = tempFreq;
+    
+    return i;
+}
+
+// Quick sort implementation for word frequency
+void quickSortWordFrequencyImpl(WordFrequency* start, WordFrequency* end) {
+    if (start == nullptr || end == nullptr || start == end) {
+        return;
+    }
+    
+    WordFrequency* pivot = partitionWordFrequency(start, end);
+    
+    // Recursively sort the left part
+    if (start != pivot) {
+        // Find node before pivot
+        WordFrequency* temp = start;
+        while (temp->next != pivot) {
+            temp = temp->next;
+        }
+        quickSortWordFrequencyImpl(start, temp);
+    }
+    
+    // Recursively sort the right part
+    if (pivot->next && pivot != end) {
+        quickSortWordFrequencyImpl(pivot->next, end);
+    }
+}
+
+// Quick sort for word frequency list
+void quickSortWordFrequency(WordFrequency*& head) {
+    if (!head || !head->next) return;
+    
+    WordFrequency* last = getLastWordNode(head);
+    quickSortWordFrequencyImpl(head, last);
+}
+
+// Apply insertion sort to word frequency list
+void insertionSortWordFrequency(WordFrequency*& head) {
+    if (!head || !head->next) return;
+    
+    WordFrequency* sorted = nullptr;
+    WordFrequency* current = head;
+    
+    while (current) {
+        WordFrequency* next = current->next;
+        current->next = nullptr;
+        
+        // Insert current into sorted list by frequency (descending)
+        if (!sorted || current->frequency > sorted->frequency) {
+            current->next = sorted;
+            sorted = current;
+        } else {
+            WordFrequency* search = sorted;
+            while (search->next && search->next->frequency >= current->frequency) {
+                search = search->next;
+            }
+            current->next = search->next;
+            search->next = current;
+        }
+        
+        current = next;
+    }
+    
+    head = sorted;
+}
+
+// Helper functions for merge sort
+WordFrequency* findMiddleWord(WordFrequency* head) {
+    if (!head) return nullptr;
+    
+    WordFrequency* slow = head;
+    WordFrequency* fast = head->next;
+    
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+    }
+    
+    return slow;
+}
+
+WordFrequency* mergeWordFrequency(WordFrequency* left, WordFrequency* right) {
+    if (!left) return right;
+    if (!right) return left;
+    
+    WordFrequency* result = nullptr;
+    
+    // Choose head with higher frequency
+    if (left->frequency >= right->frequency) {
+        result = left;
+        result->next = mergeWordFrequency(left->next, right);
+    } else {
+        result = right;
+        result->next = mergeWordFrequency(left, right->next);
+    }
+    
+    return result;
+}
+
+// Merge sort recursive implementation
+WordFrequency* mergeSortWordFrequencyRecursive(WordFrequency* head) {
+    if (!head || !head->next) return head;
+    
+    // Find middle
+    WordFrequency* middle = findMiddleWord(head);
+    WordFrequency* right = middle->next;
+    middle->next = nullptr;
+    
+    // Sort left and right halves
+    WordFrequency* left = mergeSortWordFrequencyRecursive(head);
+    right = mergeSortWordFrequencyRecursive(right);
+    
+    // Merge sorted halves
+    return mergeWordFrequency(left, right);
+}
+
+// Apply merge sort to word frequency list
+void mergeSortWordFrequency(WordFrequency*& head) {
+    head = mergeSortWordFrequencyRecursive(head);
+}
+
+// Filter words with frequency above threshold
+WordFrequency* filterFrequentWords(WordFrequency* head, int threshold, int& commonWordCount, int& rareWordCount) {
+    WordFrequency* filteredHead = nullptr;
+    commonWordCount = 0;
+    rareWordCount = 0;
+    
+    WordFrequency* current = head;
+    while (current) {
+        if (current->frequency >= threshold) {
+            insertWordFrequency(filteredHead, current->word, current->frequency);
+            commonWordCount++;
+        } else {
+            rareWordCount++;
+        }
+        current = current->next;
+    }
+    
+    return filteredHead;
+}
+
+// Main analysis function
+void analyzeFrequentWordsInLowRatedReviews(Review* reviewHead, int algorithm) {
+    auto start = high_resolution_clock::now();
+    
+    cout << "\n=== ANALYZING FREQUENT WORDS IN 1-STAR REVIEWS ===\n" << endl;
+    
+    // Select algorithm based on menu choice
+    switch(algorithm) {
+        case 1:
+            cout << "Using Bubble Sort and Binary Search approach for word analysis" << endl;
+            break;
+        case 2:
+            cout << "Using Quick Sort and Exponential Search approach for word analysis" << endl;
+            break;
+        case 3:
+            cout << "Using Insertion Sort and Jump Search approach for word analysis" << endl;
+            break;
+        case 4:
+            cout << "Using Merge Sort and Linear Search approach for word analysis" << endl;
+            break;
+        default:
+            cout << "Invalid algorithm choice. Using default implementation." << endl;
+    }
+    
+    int totalReviews = 0;
+    int oneStarReviews = 0;
+    int totalWords = 0;
+    
+    // Extract words from reviews using appropriate algorithm
+    WordFrequency* wordFreqHead = extractWordsFromReviews(
+        reviewHead, algorithm, totalReviews, oneStarReviews, totalWords);
+    
+    // Sort word frequency list using appropriate algorithm
+    cout << "Sorting word frequencies..." << endl;
+    switch(algorithm) {
+        case 1:
+            bubbleSortWordFrequency(wordFreqHead);
+            break;
+        case 2:
+            quickSortWordFrequency(wordFreqHead);
+            break;
+        case 3:
+            insertionSortWordFrequency(wordFreqHead);
+            break;
+        case 4:
+            mergeSortWordFrequency(wordFreqHead);
+            break;
+        default:
+            // Default sort
+            insertionSortWordFrequency(wordFreqHead);
+    }
+    
+    // Filter words with frequency above threshold
+    int commonWordCount = 0;
+    int rareWordCount = 0;
+    int minFrequencyThreshold = 5;
+    
+    WordFrequency* filteredFreqHead = filterFrequentWords(
+        wordFreqHead, minFrequencyThreshold, commonWordCount, rareWordCount);
+    
+    // Character analysis (similar to the original implementation)
+    int vowelCount = 0;
+    int consonantCount = 0;
+    int totalChars = 0;
+    int totalLength = 0;
+    int wordCount = 0;
+    
+    WordFrequency* temp = filteredFreqHead;
+    while (temp) {
+        wordCount++;
+        totalLength += temp->word.length();
+        
+        for (char c : temp->word) {
+            totalChars++;
+            c = tolower(c);
+            
+            if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u') {
+                vowelCount++;
+            } else if (isalpha(c)) {
+                consonantCount++;
+            }
+        }
+        
+        temp = temp->next;
+    }
+    
+    double avgWordLength = wordCount > 0 ? static_cast<double>(totalLength) / wordCount : 0;
+    
+    // Display statistics
+    cout << "\nANALYSIS SUMMARY:" << endl;
+    cout << "Total reviews: " << totalReviews << endl;
+    cout << "1-star reviews: " << oneStarReviews << endl;
+    cout << "Percentage of 1-star reviews: " 
+          << fixed << setprecision(2)
+          << (totalReviews > 0 ? (oneStarReviews * 100.0 / totalReviews) : 0)
+          << "%" << endl;
+    cout << "Total words processed: " << totalWords << endl;
+    cout << "Common words (frequency > 5): " << commonWordCount << endl;
+    cout << "Rare words (frequency <= 5): " << rareWordCount << endl;
+    cout << "Average word length: " << fixed << setprecision(2) << avgWordLength << " characters" << endl;
+    
+    // Character analysis
+    cout << "\nCHARACTER ANALYSIS:" << endl;
+    cout << "Total characters: " << totalChars << endl;
+    cout << "Vowels: " << vowelCount << " (" 
+         << fixed << setprecision(1) << (totalChars > 0 ? vowelCount * 100.0 / totalChars : 0) << "%)" << endl;
+    cout << "Consonants: " << consonantCount << " (" 
+         << fixed << setprecision(1) << (totalChars > 0 ? consonantCount * 100.0 / totalChars : 0) << "%)" << endl;
+    
+    // Display top words
+    cout << "\nTOP WORDS IN 1-STAR REVIEWS:" << endl;
+    cout << left 
+          << setw(5) << "RANK" 
+          << setw(20) << "WORD" 
+          << setw(10) << "FREQUENCY" 
+          << endl;
+    cout << string(35, '-') << endl;
+    
+    temp = filteredFreqHead;
+    int rank = 1;
+    while (temp && rank <= 10) {
+        cout << left 
+              << setw(5) << rank++ 
+              << setw(20) << temp->word 
+              << setw(10) << temp->frequency 
+              << endl;
+        temp = temp->next;
+    }
+    
+    auto end = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(end - start).count();
+    cout << "\nAnalysis completed in " << duration << " milliseconds" << endl;
+    
+    // Clean up
+    freeWordFrequencyList(filteredFreqHead);
+    freeWordFrequencyList(wordFreqHead);
+}
+
 // ------------------- Primary Analysis Functions -------------------
 void analyzeTransactionsSortedByDate(Transaction* transactionHead, Review* reviewHead, int sortAlgorithm) {
     auto start = high_resolution_clock::now();
@@ -1177,30 +1842,6 @@ void analyzeElectronicsCreditCardPayments(Transaction* transactionHead, int sear
     cout << "\nExecution time: " << duration.count() << " milliseconds" << endl;
 }
 
-void analyzeFrequentWordsInLowRatedReviews(Review* reviewHead) {
-    auto start = high_resolution_clock::now();
-    
-    cout << "\n----- Most Frequent Words in 1-Star Reviews -----\n" << endl;
-    
-    // Find frequent words in 1-star reviews
-    WordFrequency* frequentWords = analyzeOneStarReviews(reviewHead);
-    
-    // Sort by frequency
-    sortWordFrequency(frequentWords);
-    
-    // Display top words
-    cout << "\nTop 10 most frequent words in 1-star reviews:" << endl;
-    displayWordFrequency(frequentWords, 10);
-    
-    auto end = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end - start);
-    
-    cout << "\nExecution time: " << duration.count() << " milliseconds" << endl;
-    
-    // Clean up
-    freeWordFrequencyList(frequentWords);
-}
-
 // ------------------- Main Function -------------------
 int main() {
     cout << "\n===================================================\n";
@@ -1230,43 +1871,31 @@ int main() {
     cout << "Successfully loaded " << reviewCount << " reviews." << endl;
     
     int choice = 0;
-    int sortChoice = 0;
-    int searchChoice = 0;
     
     do {
-        // Display menu
-        cout << "\n===================================================\n";
-        cout << "                      MENU                         \n";
-        cout << "===================================================\n";
-        cout << "1. Sort Transactions by Date from Customers with Reviews\n"; // Updated option
-        cout << "2. Calculate Electronics Credit Card Payment Percentage\n";
-        cout << "3. Analyze Word Frequency in 1-Star Reviews\n";
-        cout << "4. Run All Analyses\n";
-        cout << "0. Exit\n";
-        cout << "Enter your choice: ";
+        // Display new menu format
+        cout << "\nTRANSACTION ANALYSIS SYSTEM" << endl;
+        cout << "Please select an option:" << endl;
+        cout << "1 — Run implementation with bubble sort and binary search" << endl;
+        cout << "2 — Run implementation with quick sort and exponential search" << endl;
+        cout << "3 — Run implementation with insertion sort and jump search" << endl;
+        cout << "4 — Run implementation with merge sort and linear search" << endl;
+        cout << "0 - Exit program" << endl;
+        cout << "Enter your choice (0—4) : ";
         cin >> choice;
         
         switch (choice) {
             case 1: {
-                cout << "\nChoose a sorting algorithm:\n";
-                cout << "1. Merge Sort\n";
-                cout << "2. Bubble Sort\n";
-                cout << "3. Insertion Sort\n";
-                cout << "4. Quick Sort\n";
-                cout << "Enter your choice: ";
-                cin >> sortChoice;
+                cout << "\n===== Running with Bubble Sort and Binary Search =====\n" << endl;
                 
-                cout << "Debug: Creating transaction copy for sorting..." << endl;
-                // Create a copy of transactionHead for sorting - OPTIMIZED VERSION
+                // Create transaction copy for first analysis
                 Transaction* transactionCopy = nullptr;
-                Transaction* tail = nullptr;  // Keep track of the tail
+                Transaction* tail = nullptr;
                 Transaction* current = transactionHead;
                 int copyCount = 0;
                 
                 while (current) {
-                    // Create a new node directly
                     Transaction* newNode = new Transaction(*current);
-                    
                     if (transactionCopy == nullptr) {
                         transactionCopy = newNode;
                         tail = newNode;
@@ -1274,86 +1903,30 @@ int main() {
                         tail->next = newNode;
                         tail = newNode;
                     }
-                    
                     current = current->next;
                     copyCount++;
-                    
-                    if (copyCount % 1000 == 0) {
-                        cout << "Debug: Copied " << copyCount << " transactions\r";
-                        cout.flush();
-                    }
                 }
-                cout << "\nDebug: Copy completed with " << copyCount << " transactions" << endl;
                 
-                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, sortChoice);
+                // Run analyses with bubble sort and binary search
+                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, 2); // Bubble Sort
+                analyzeElectronicsCreditCardPayments(transactionHead, 2); // Binary Search
+                analyzeFrequentWordsInLowRatedReviews(reviewHead, 1);
                 
                 // Clean up
-                cout << "Debug: Freeing transaction copy..." << endl;
                 freeTransactionList(transactionCopy);
-                cout << "Debug: Memory freed successfully" << endl;
                 break;
             }
             case 2: {
-                cout << "\nChoose a searching algorithm:\n";
-                cout << "1. Linear Search\n";
-                cout << "2. Binary Search\n";
-                cout << "3. Jump Search\n";
-                cout << "4. Exponential Search\n";
-                cout << "Enter your choice: ";
-                cin >> searchChoice;
+                cout << "\n===== Running with Quick Sort and Exponential Search =====\n" << endl;
                 
-                analyzeElectronicsCreditCardPayments(transactionHead, searchChoice);
-                break;
-            }
-            case 3: {
-                analyzeFrequentWordsInLowRatedReviews(reviewHead);
-                break;
-            }
-            case 4: {
-                cout << "\n===== Run All Analyses =====\n" << endl;
-    
-                int sortOption = 0;
-                int searchOption = 0;
-                
-                cout << "Choose a sorting algorithm for the first analysis:" << endl;
-                cout << "1 - Bubble Sort" << endl;
-                cout << "2 - Quick Sort" << endl;
-                cout << "3 - Insertion Sort" << endl;
-                cout << "4 - Merge Sort (Default)" << endl;
-                cout << "Enter choice (1-4): ";
-                cin >> sortOption;
-                
-                if (sortOption < 1 || sortOption > 4) {
-                    cout << "Invalid choice. Using Merge Sort as default." << endl;
-                    sortOption = 4; // Default to Merge Sort
-                }
-                
-                cout << "\nChoose a searching algorithm for the second analysis:" << endl;
-                cout << "1 - Linear Search (Default)" << endl;
-                cout << "2 - Binary Search" << endl;
-                cout << "3 - Jump Search" << endl;
-                cout << "4 - Exponential Search" << endl;
-                cout << "Enter choice (1-4): ";
-                cin >> searchOption;
-                
-                if (searchOption < 1 || searchOption > 4) {
-                    cout << "Invalid choice. Using Linear Search as default." << endl;
-                    searchOption = 1; // Default to Linear Search
-                }
-                
-                cout << "\nRunning all analyses with selected algorithms..." << endl;
-
-                // Analysis 1: Transactions by Date (with selected sorting algorithm)
-                cout << "Debug: Creating transaction copy for first analysis..." << endl;
+                // Create transaction copy for first analysis
                 Transaction* transactionCopy = nullptr;
-                Transaction* tail = nullptr;  // Keep track of the tail
+                Transaction* tail = nullptr;
                 Transaction* current = transactionHead;
                 int copyCount = 0;
-
+                
                 while (current) {
-                    // Create a new node directly
                     Transaction* newNode = new Transaction(*current);
-                    
                     if (transactionCopy == nullptr) {
                         transactionCopy = newNode;
                         tail = newNode;
@@ -1361,33 +1934,86 @@ int main() {
                         tail->next = newNode;
                         tail = newNode;
                     }
-                    
                     current = current->next;
                     copyCount++;
-                    
-                    if (copyCount % 1000 == 0) {
-                        cout << "Debug: Copied " << copyCount << " transactions\r";
-                        cout.flush();
-                    }
                 }
-                cout << "\nDebug: Copy completed with " << copyCount << " transactions" << endl;
-
-                // Run first analysis with selected sorting algorithm
-                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, sortOption);
                 
-                // Analysis 2: Electronics Credit Card Payments (with selected search algorithm)
-                analyzeElectronicsCreditCardPayments(transactionHead, searchOption);
+                // Run analyses with quick sort and exponential search
+                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, 4); // Quick Sort
+                analyzeElectronicsCreditCardPayments(transactionHead, 4); // Exponential Search
+                analyzeFrequentWordsInLowRatedReviews(reviewHead, 2);
                 
-                // Analysis 3: One-Star Reviews Analysis
-                analyzeFrequentWordsInLowRatedReviews(reviewHead);
+                // Clean up
+                freeTransactionList(transactionCopy);
+                break;
+            }
+            case 3: {
+                cout << "\n===== Running with Insertion Sort and Jump Search =====\n" << endl;
                 
+                // Create transaction copy for first analysis
+                Transaction* transactionCopy = nullptr;
+                Transaction* tail = nullptr;
+                Transaction* current = transactionHead;
+                int copyCount = 0;
+                
+                while (current) {
+                    Transaction* newNode = new Transaction(*current);
+                    if (transactionCopy == nullptr) {
+                        transactionCopy = newNode;
+                        tail = newNode;
+                    } else {
+                        tail->next = newNode;
+                        tail = newNode;
+                    }
+                    current = current->next;
+                    copyCount++;
+                }
+                
+                // Run analyses with insertion sort and jump search
+                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, 3); // Insertion Sort
+                analyzeElectronicsCreditCardPayments(transactionHead, 3); // Jump Search
+                analyzeFrequentWordsInLowRatedReviews(reviewHead, 3);
+                
+                // Clean up
+                freeTransactionList(transactionCopy);
+                break;
+            }
+            case 4: {
+                cout << "\n===== Running with Merge Sort and Linear Search =====\n" << endl;
+                
+                // Create transaction copy for first analysis
+                Transaction* transactionCopy = nullptr;
+                Transaction* tail = nullptr;
+                Transaction* current = transactionHead;
+                int copyCount = 0;
+                
+                while (current) {
+                    Transaction* newNode = new Transaction(*current);
+                    if (transactionCopy == nullptr) {
+                        transactionCopy = newNode;
+                        tail = newNode;
+                    } else {
+                        tail->next = newNode;
+                        tail = newNode;
+                    }
+                    current = current->next;
+                    copyCount++;
+                }
+                
+                // Run analyses with merge sort and linear search
+                analyzeTransactionsSortedByDate(transactionCopy, reviewHead, 1); // Merge Sort
+                analyzeElectronicsCreditCardPayments(transactionHead, 1); // Linear Search
+                analyzeFrequentWordsInLowRatedReviews(reviewHead, 4);
+                
+                // Clean up
+                freeTransactionList(transactionCopy);
                 break;
             }
             case 0:
                 cout << "Exiting program. Goodbye!" << endl;
                 break;
             default:
-                cout << "Invalid choice. Please try again." << endl;
+                cout << "Invalid choice. Please enter a number between 0 and 4." << endl;
         }
     } while (choice != 0);
     

@@ -63,6 +63,15 @@ struct WordFrequency {
     WordFrequency(const std::string& w = "", int f = 0);
 };
 
+struct WordNode {
+    char* word;
+    int count;
+    WordNode* next;
+    
+    WordNode(const char* w);
+    ~WordNode();
+};
+
 // Utility functions
 std::string trim(const std::string& str);
 std::string convertDateFormat(const std::string& date);
@@ -144,5 +153,31 @@ int countReviews(Review* head);
 void analyzeTransactionsSortedByDate(Transaction* transactionHead, Review* reviewHead, int sortAlgorithm);
 void analyzeElectronicsCreditCardPayments(Transaction* transactionHead, int searchAlgorithm);
 void analyzeFrequentWordsInLowRatedReviews(Review* reviewHead);
+
+// Additional functions for WordNode
+int countNodes(WordNode* head);
+WordNode* getNodeAt(WordNode* head, int position);
+bool strEqual(const char* s1, const char* s2);
+char* cleanWord(const char* word);
+WordNode* binarySearch(WordNode* head, int left, int right, const char* word);
+WordNode* exponentialSearch(WordNode* head, const char* word);
+void addWordExponential(WordNode*& head, const char* word);
+void sortByFrequency(WordNode*& head);
+void freeWordNodeList(WordNode*& head);
+void analyzeOneStarReviewsExponential(Review* reviewHead);
+
+// Word frequency analysis functions
+void analyzeFrequentWordsInLowRatedReviews(Review* reviewHead, int algorithm);
+WordFrequency* extractWordsFromReviews(Review* reviewHead, int algorithm, int& totalReviews, 
+                                       int& oneStarReviews, int& totalWords);
+void binarySearchWordUpdate(WordFrequency*& head, const std::string& word);
+void exponentialSearchWordUpdate(WordFrequency*& head, const std::string& word);
+void jumpSearchWordUpdate(WordFrequency*& head, const std::string& word);
+void linearSearchWordUpdate(WordFrequency*& head, const std::string& word);
+void bubbleSortWordFrequency(WordFrequency*& head);
+void quickSortWordFrequency(WordFrequency*& head);
+void insertionSortWordFrequency(WordFrequency*& head);
+void mergeSortWordFrequency(WordFrequency*& head);
+WordFrequency* filterFrequentWords(WordFrequency* head, int threshold, int& commonWordCount, int& rareWordCount);
 
 #endif // ECOMMERCE_ANALYZER_HPP
